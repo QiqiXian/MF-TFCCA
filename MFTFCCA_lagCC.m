@@ -3,7 +3,7 @@
 % 
 %%
 
-function [lags, r_0, r_su] = TFCCA_lagCC(X, Y, fs, downsample_ratio, win, time_start, time_end, maxlag1, maxlag2, real_STFT, calibrations, options)
+function [lags, r_0, r_su] = MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time_start, time_end, maxlag1, maxlag2, real_STFT, calibrations, options)
 
     arguments
         X (:,:) 

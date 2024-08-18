@@ -1,6 +1,6 @@
 %% Compute correlation calibrations from X
 
-function [calibrations] = TFCCA_compute_calibrations(X, fs, downsample_ratio, win, time_start, time_end, maxlag1, maxlag2, real_STFT, options)
+function [calibrations] = MFTFCCA_compute_calibrations(X, fs, downsample_ratio, win, time_start, time_end, maxlag1, maxlag2, real_STFT, options)
 
     arguments
         X (:,:) 

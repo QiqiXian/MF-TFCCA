@@ -138,14 +138,14 @@ title("STFT(X) (db)"); ylabel("Freq (Hz)");
 win = 40;
 
 tic
-[lags, r_0, r_su] = TFCCA_lagCC(x1(1:10,:), x2(1:10,:), fs, downsample_ratio, ...
+[lags, r_0, r_su] = MFTFCCA_lagCC(x1(1:10,:), x2(1:10,:), fs, downsample_ratio, ...
     win, 2, 18, 0.5, 0.5, false, [], "surrogate_num", 300, "plot", 0);
 toc
 
 %%
 win = 40;
 tic
-TFCCA(x1(2,:), x2(2,:), fs, downsample_ratio, win, 0.08, 19.9, false, "lag", 0, "surrogate_num", 100, "plot", false);
+MFTFCCA_spectral(x1(2,:), x2(2,:), fs, downsample_ratio, win, 0.08, 19.9, false, "lag", 0, "surrogate_num", 100, "plot", false);
 toc
 
 %% Use MFVAR to test the mixed-frequency causality

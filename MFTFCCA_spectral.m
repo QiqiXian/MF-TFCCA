@@ -1,7 +1,7 @@
-%% TF-CCA
+%% MFTFCCA_spectral
 % 
 % Estimate the mixed-frequency time-frequency CCA between X (high sampling rate) and Y (low sampling rate)
-% 
+% Compute the MF-TFCCA coefficients and correlations
 % 
 %% Arguments
 % 
@@ -37,7 +37,7 @@
 %   As                      The surrogate TF-CCA coefficients, shape (n_freqs, n_trials * surrogate_num)
 % 
 %%
-function [stft_f, r_ori, As0, r_shuffle, As] = TFCCA(X, Y, fs, downsample_ratio, win, time_start, time_end, real_STFT, options)
+function [stft_f, r_ori, As0, r_shuffle, As] = MFTFCCA_spectral(X, Y, fs, downsample_ratio, win, time_start, time_end, real_STFT, options)
 
     arguments
         X (:,:) 
