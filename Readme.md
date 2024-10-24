@@ -16,3 +16,6 @@ The following MATLAB toolboxes are required to run the code:
 ## Usage
 
 Please refer to `demo_VAR.m` for an example of how to use the code. 
+
+## Citation
+For usage of the package and associated manuscript, please cite according to the enclosed citation.bib.
