@@ -147,7 +147,7 @@ function [stft_f, r_ori, As0, r_shuffle, As] = MFTFCCA_spectral(X, Y, fs, downsa
     end
 
     if options.plot
-        plot_CCA_coeff(stft_f, As0, "plot_interval", plot_interval)
+        plot_CCA_coeff(stft_f, As0, "plot_interval", plot_interval);
     end
 
 
@@ -213,16 +213,16 @@ function [stft_f, r_ori, As0, r_shuffle, As] = MFTFCCA_spectral(X, Y, fs, downsa
 
     [h, p] = ttest((r_ori'-r(:,1))./sqrt(r(:,2)));
     if h == 1
-        fprintf("ttest: Causal, p=%.2f", p)
+        fprintf("ttest: Causal, p=%.2e", p)
     else
-        fprintf("ttest: Non-causal, p=%.2f", p)
+        fprintf("ttest: Non-causal, p=%.2e", p)
     end
 
     [h, p] = kstest2(r_ori, r(:,1));
     if h == 1
-        fprintf("KStest: Causal, p=%.2f", p)
+        fprintf("KStest: Causal, p=%.2e", p)
     else
-        fprintf("KStest: Non-causal, p=%.2f", p)
+        fprintf("KStest: Non-causal, p=%.2e", p)
     end
 
 end
