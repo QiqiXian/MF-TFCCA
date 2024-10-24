@@ -18,4 +18,4 @@ The following MATLAB toolboxes are required to run the code:
 Please refer to `demo_VAR.m` for an example of how to use the code. 
 
 ## Citation
-For usage of the package and associated manuscript, please cite according to the enclosed citation.bib.
+For usage of the package and associated manuscript, please cite according to the enclosed [citation.bib](https://github.com/QiqiXian/MF-TFCCA/blob/main/citation.bib).
