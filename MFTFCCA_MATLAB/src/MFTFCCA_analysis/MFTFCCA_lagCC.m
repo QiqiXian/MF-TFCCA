@@ -38,7 +38,8 @@ function [lags, r_0, r_su] = MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time
         r_cal_min = calibrations(:, 2);
     end
 
-    partial = ~isempty(options.partial_high_set); partial_high_set = options.partial_high_set;
+    partial = ~isempty(options.partial_high_set); 
+    partial_high_set = options.partial_high_set;
     partial_low = ~isempty(options.partial_low_set);
     if partial_low
         partial_low_set = options.partial_low_set;
@@ -47,7 +48,7 @@ function [lags, r_0, r_su] = MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time
         FFT_num2 = FFT_num / downsample_ratio;
     end
 
-    assert(partial_low == 0 || partial == 0, "Only one of partial_high_set and partial_low_set can be set")
+    % assert(partial_low == 0 || partial == 0, "Only one of partial_high_set and partial_low_set can be set")
 
     LH_index = @(x) (x-1) * downsample_ratio + 1;
     HL_index = @(x) ceil((x-1) / downsample_ratio) + 1;
@@ -89,30 +90,66 @@ function [lags, r_0, r_su] = MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time
             s1 = abs(s1);
         end
         
-        if partial
-            x_partial = partial_high_set(i,:);
-            [s3, ~, ~] = STFT(x_partial, fs, win, win-1, FFT_num, "plot", 0, "fpass", fpass);
-            s3 = zscore(s3')';
-            if real_STFT
-                s3 = abs(s3);
-            end 
+        % % Generate partial dataset
 
+        
+        if partial
+            s3_high = [];
+            if class(partial_high_set) == "cell"
+                for k = 1:length(partial_high_set)
+                    x_partial = partial_high_set{k}; x_partial = x_partial(i,:);
+                    [s3_, ~, ~] = STFT(x_partial, fs, win, win-1, FFT_num, "plot", 0, "fpass", fpass);
+                    s3_ = zscore(s3_')';
+                    if real_STFT
+                        s3_ = abs(s3_);
+                    end 
+                    s3_high = [s3_high; s3_];
+                end
+            else
+                x_partial = partial_high_set(i,:);
+                [s3_, ~, ~] = STFT(x_partial, fs, win, win-1, FFT_num, "plot", 0, "fpass", fpass);
+                s3_ = zscore(s3_')';
+                if real_STFT
+                    s3_ = abs(s3_);
+                end
+                s3_high = s3_;
+            end
         elseif partial_low
-            x_partial = partial_low_set(i,:);
-            [s3, ~, ~] = STFT(x_partial, fs2, win2, win2-1, FFT_num2, "plot", 0, "fpass", fpass);
-            s3 = zscore(s3')';
-            if real_STFT
-                s3 = abs(s3);
-            end 
+            s3_low = [];
+            if class(partial_low_set) == "cell"
+                for k = 1:length(partial_low_set)
+                    x_partial = partial_low_set{k}; x_partial = x_partial(i,:);
+                    [s3_, ~, ~] = STFT(x_partial, fs2, win2, win2-1, FFT_num2, "plot", 0, "fpass", fpass);
+                    s3_ = zscore(s3_')';
+                    if real_STFT
+                        s3_ = abs(s3_);
+                    end 
+                    s3_low = [s3_low; s3_];
+                end
+            else
+                x_partial = partial_low_set(i,:);
+                [s3_, ~, ~] = STFT(x_partial, fs2, win2, win2-1, FFT_num2, "plot", 0, "fpass", fpass);
+                s3_ = zscore(s3_')';
+                if real_STFT
+                    s3_ = abs(s3_);
+                end
+                s3_low = s3_;
+            end
             % s3 = s3(abs(mean(abs(s3),2)) > 5e-2, :); % remove low power freqs
         end
 
-        for lag = -lag_max + 1 : lag_max2
 
+        for lag = -lag_max + 1 : lag_max2
+            s3 = [];
             if partial
-                [~,~,ri] = pCCA(s1(:, s1_r1+lag: downsample_ratio : s1_r2+lag)', x_low(x22_r1:x22_r2)', s3(:, s1_r1+lag: downsample_ratio : s1_r2+lag)');
-            elseif partial_low
-                [~,~,ri] = pCCA(s1(:, s1_r1+lag: downsample_ratio : s1_r2+lag)', x_low(x22_r1:x22_r2)', s3(:, HL_index(s1_r1+lag):HL_index(s1_r2+lag))');
+                s3 = [s3; s3_high(:, s1_r1+lag: downsample_ratio : s1_r2+lag)];
+            end
+            if partial_low
+                s3 = [s3; s3_low(:, HL_index(s1_r1+lag):HL_index(s1_r2+lag))];
+            end
+
+            if partial || partial_low
+                [~,~,ri] = pCCA(s1(:, s1_r1+lag: downsample_ratio : s1_r2+lag)', x_low(x22_r1:x22_r2)', s3');
             else
                 [~,~,ri] = canoncorr((s1(:, s1_r1+lag: downsample_ratio : s1_r2+lag)'),x_low(x22_r1:x22_r2)');
             end
@@ -139,20 +176,48 @@ function [lags, r_0, r_su] = MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time
         x_high_su = phaseran(x_high', surrogate_num);
         
         if partial
-            x_partial = partial_high_set(i,:);
-            [s3, ~, ~] = STFT(x_partial, fs, win, win-1, FFT_num, "plot", 0, "fpass", fpass);
-            s3 = zscore(s3')';
-            if real_STFT
-                s3 = abs(s3);
-            end 
+            s3_high = [];
+            if class(partial_high_set) == "cell"
+                for k = 1:length(partial_high_set)
+                    x_partial = partial_high_set{k}; x_partial = x_partial(i,:);
+                    [s3_, ~, ~] = STFT(x_partial, fs, win, win-1, FFT_num, "plot", 0, "fpass", fpass);
+                    s3_ = zscore(s3_')';
+                    if real_STFT
+                        s3_ = abs(s3_);
+                    end 
+                    s3_high = [s3_high; s3_];
+                end
+            else
+                x_partial = partial_high_set(i,:);
+                [s3_, ~, ~] = STFT(x_partial, fs, win, win-1, FFT_num, "plot", 0, "fpass", fpass);
+                s3_ = zscore(s3_')';
+                if real_STFT
+                    s3_ = abs(s3_);
+                end
+                s3_high = s3_;
+            end
 
         elseif partial_low
-            x_partial = partial_low_set(i,:);
-            [s3, ~, ~] = STFT(x_partial, fs2, win2, win2-1, FFT_num2, "plot", 0, "fpass", fpass);
-            s3 = zscore(s3')';
-            if real_STFT
-                s3 = abs(s3);
-            end 
+            s3_low = [];
+            if class(partial_low_set) == "cell"
+                for k = 1:length(partial_low_set)
+                    x_partial = partial_low_set{k}; x_partial = x_partial(i,:);
+                    [s3_, ~, ~] = STFT(x_partial, fs2, win2, win2-1, FFT_num2, "plot", 0, "fpass", fpass);
+                    s3_ = zscore(s3_')';
+                    if real_STFT
+                        s3_ = abs(s3_);
+                    end 
+                    s3_low = [s3_low; s3_];
+                end
+            else
+                x_partial = partial_low_set(i,:);
+                [s3_, ~, ~] = STFT(x_partial, fs2, win2, win2-1, FFT_num2, "plot", 0, "fpass", fpass);
+                s3_ = zscore(s3_')';
+                if real_STFT
+                    s3_ = abs(s3_);
+                end
+                s3_low = s3_;
+            end
             % s3 = s3(abs(mean(abs(s3),2)) > 5e-2, :); % remove low power freqs
         end
         
@@ -168,10 +233,16 @@ function [lags, r_0, r_su] = MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time
             end
             
             for lag = -lag_max + 1 : lag_max2
+                s3 = [];
                 if partial
-                    [~,~,ri] = pCCA(s1(:, s1_r1+lag: downsample_ratio : s1_r2+lag)', x_low(x22_r1:x22_r2)', s3(:, s1_r1+lag: downsample_ratio : s1_r2+lag)');
-                elseif partial_low
-                    [~,~,ri] = pCCA(s1(:, s1_r1+lag: downsample_ratio : s1_r2+lag)', x_low(x22_r1:x22_r2)', s3(HL_index(s1_r1+lag):HL_index(s1_r2+lag))');
+                    s3 = [s3; s3_high(:, s1_r1+lag: downsample_ratio : s1_r2+lag)];
+                end
+                if partial_low
+                    s3 = [s3; s3_low(:, HL_index(s1_r1+lag):HL_index(s1_r2+lag))];
+                end
+
+                if partial || partial_low
+                    [~,~,ri] = pCCA(s1(:, s1_r1+lag: downsample_ratio : s1_r2+lag)', x_low(x22_r1:x22_r2)', s3');
                 else
                     [~,~,ri] = canoncorr((s1(:, s1_r1+lag: downsample_ratio : s1_r2+lag)'),x_low(x22_r1:x22_r2)');
                 end

@@ -2,12 +2,15 @@
 
 Mixed-frequency time-frequency canonical correlation analysis (MF-TFCCA) is a method for identifying causal relationships between time series of different temporal resolutions.
 
-This repository contains the MATLAB code for the paper: *[Inferring directed spectral information flow between mixed-frequency time series](https://arxiv.org/abs/2408.06109)*
+This repository contains the MATLAB and Python codes for the paper: *[Inferring directed spectral information flow between mixed-frequency time series](https://arxiv.org/abs/2408.06109)*
 
 ## Repo Contents
-- `src`: MATLAB code for MF-TFCCA and related functions.
-- `demo`: MATLAB scripts for running a simulation demo.
-- `Data`: Data samples。
+- `Data`: Data samples.
+- `MFTFCCA_MATLAB/src`: MATLAB code for MF-TFCCA and related functions.
+- `MFTFCCA_MATLAB/demo`: MATLAB scripts for running a simulation demo.
+- `MFTFCCA_Python/src`: Python code for MF-TFCCA and related functions.
+- `MFTFCCA_Python/demo`: Python scripts for running a simulation demo.
+
 
 ## Requirements
 
@@ -19,6 +22,8 @@ The package is tested on Windows 10 operating system. The package should work on
 
 ### Software
 
+#### MATLAB
+
 Before setting up the package, please ensure that you have `MATLAB` installed on your system. The package is tested on `MATLAB R2021a`.
 
 The following MATLAB toolboxes are required to run the code:
@@ -29,9 +34,13 @@ This package can be installed using the given url and will install in within 30 
 
 - MFVAR_toolbox (included in this repository) for estimating Granger causality in mixed-frequency VAR systems.
 
+#### Python
+
+<!-- TODO -->
+
 ## Installation Guide
 
-The package can be used directly by installing the required toolboxes and adding the `src` folder and its subfolders to the MATLAB path.
+(For MATLAB) The package can be used directly by installing the required toolboxes and adding the `src` folder and its subfolders to the MATLAB path.
 
 ## Usage
 
