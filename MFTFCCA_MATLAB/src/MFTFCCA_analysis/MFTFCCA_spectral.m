@@ -57,7 +57,6 @@ function [stft_f, r_ori, As0, r_shuffle, As] = MFTFCCA_spectral(X, Y, fs, downsa
         options.partial_low_set (:,:) = []
         options.plot (1,1) logical = true
         options.plot_interval (1,1) {mustBeInteger} = round(size(X, 1) / 100)
-
     end
 
     ntrials = size(X, 1); x_len = size(X, 2);
@@ -84,7 +83,7 @@ function [stft_f, r_ori, As0, r_shuffle, As] = MFTFCCA_spectral(X, Y, fs, downsa
         win2 = ceil(win / downsample_ratio);
         FFT_num2 = FFT_num / downsample_ratio;
     end
-    assert(partial_low == 0 || partial == 0, "Only one of partial_high_set and partial_low_set can be set")
+    % assert(partial_low == 0 || partial == 0, "Only one of partial_high_set and partial_low_set can be set")
 
     LH_index = @(x) (x-1) * downsample_ratio + 1;
     % HL_index = @(x) ceil((x-1) / downsample_ratio) + 1;

@@ -265,6 +265,7 @@ function [lags, r_0, r_su] = MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time
         figure('Position', [100, 100, 800, 400]); hold on;
 
         norm_factor = sqrt(ntrials);
+%         norm_factor = 1;
 
         r = r_su;
         fill([lags lags(end:-1:1)], [r(1,:)+r(2,:)/norm_factor, r(1,end:-1:1)-r(2,end:-1:1)/norm_factor], ...

@@ -4,6 +4,7 @@ from sklearn.cross_decomposition import CCA
 from scipy.signal import stft, hann
 from matplotlib.colors import Normalize
 import numpy as np
+from scipy.stats import ttest_ind, ks_2samp
 
 def canoncorr(X, Y):
     """
@@ -25,7 +26,7 @@ def canoncorr(X, Y):
 def zscore(x):
     return (x - np.mean(x, axis=0)) / np.std(x, axis=0)
 
-def STFT(x, fs, window_length, OverlapLength, FFTL, plot=True, fpass=None):
+def STFT(x, fs, window_length, OverlapLength, FFTL, plot=True, fpass=[]):
     """
     Parameters:
         x (array): Input signal.
@@ -45,7 +46,7 @@ def STFT(x, fs, window_length, OverlapLength, FFTL, plot=True, fpass=None):
     f, t, s = stft(x, fs, window=hann(window_length), nperseg=window_length, noverlap=OverlapLength, nfft=FFTL)
     
     # Filter frequency range if fpass is provided
-    if fpass is None:
+    if len(fpass) == 0:
         fpass = [0, fs / 2]
     
     f_start = np.argmax(f >= fpass[0] - 1e-6)  # Find the start index
@@ -391,4 +392,153 @@ def MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time_start, time_end, maxlag1
 
         plt.show()
 
+    return lags, r_0, r_su
 
+def MFTFCCA_spectral(X, Y, fs, downsample_ratio, 
+                     win, time_start, time_end,
+                     real_STFT,
+                     calibrations=np.array([]),
+                     lag=0,
+                     FFT_num=np.nan,
+                     surrogate_num=np.nan,
+                     fpass=[],
+                     partial_high_set=[],
+                     partial_low_set=[],
+                     plot=True,
+                     plot_interval=np.nan,):
+    
+    ntrials, x_len = X.shape
+    if FFT_num is np.nan:
+        FFT_num = win
+    if surrogate_num is np.nan:
+        surrogate_num = np.round(2000 / ntrials)
+    if plot_interval is np.nan:
+        plot_interval = np.round(ntrials / 100)
+    
+    if calibrations.size == 0:
+        r_cal_max = np.ones(ntrials)
+        r_cal_min = np.zeros(ntrials)
+    else:
+        r_cal_max = calibrations[:, 0]
+        r_cal_min = calibrations[:, 1]
+
+    partial = len(partial_high_set) > 0
+    partial_low = len(partial_low_set) > 0
+    if partial_low:
+        fs2 = fs / downsample_ratio
+        win2 = np.ceil(win / downsample_ratio)
+        FFT_num2 = FFT_num / downsample_ratio
+
+    LH_index = lambda x: (x-1) * downsample_ratio + 1
+
+    x22_r1 = np.ceil(time_start * fs / downsample_ratio) + 1
+    x22_r2 = np.floor(time_end * fs / downsample_ratio) + 1
+    lag = round(lag * fs - (win - 1) / 2)
+    s1_r1 = LH_index(x22_r1) + lag
+    s1_r2 = LH_index(x22_r2) + lag
+
+    assert s1_r1 >= 1, "time_start is too small for the lag"
+    assert x_len - win + 1 >= s1_r2, "time_end is too large for the lag"
+
+    As0 = []
+    r_ori = np.zeros(ntrials)
+
+    for i in range(ntrials):
+        x_high = X[i, :]
+        x_low = Y[i, :]
+
+        _, _, s1 = stft(x_high, fs, window='hann', nperseg=win, noverlap=win-1, nfft=FFT_num, boundary=None)
+        s1 = (s1.T - np.mean(s1, axis=1)).T
+        if real_STFT:
+            s1 = np.abs(s1)
+        s1 = s1[:, int(s1_r1):int(s1_r2):int(downsample_ratio)]
+
+        if partial:
+            x_partial = partial_high_set[i, :]
+            _, _, s3 = stft(x_partial, fs, window='hann', nperseg=win, noverlap=win-1, nfft=FFT_num, boundary=None)
+            s3 = (s3.T - np.mean(s3, axis=1)).T
+            if real_STFT:
+                s3 = np.abs(s3)
+            s3 = s3[:, int(s1_r1):int(s1_r2):int(downsample_ratio)]
+            A, _, ri = pCCA(s1.T, x_low[int(x22_r1):int(x22_r2)].T, s3.T)
+        elif partial_low:
+            x_partial = partial_low_set[i, :]
+            _, _, s3 = stft(x_partial, fs2, window='hann', nperseg=win2, noverlap=win2-1, nfft=FFT_num2, boundary=None)
+            s3 = (s3.T - np.mean(s3, axis=1)).T
+            if real_STFT:
+                s3 = np.abs(s3)
+            s3 = s3[:, int(HL_index(s1_r1)):int(HL_index(s1_r2)):int(downsample_ratio)]
+            A, _, ri = pCCA(s1.T, x_low[int(x22_r1):int(x22_r2)].T, s3.T)
+        else:
+            _, _, ri = CCA().fit(s1.T, x_low[int(x22_r1):int(x22_r2)].T).transform(s1.T, x_low[int(x22_r1):int(x22_r2)].T)
+
+        ri = (ri - r_cal_min[i]) / (r_cal_max[i] - r_cal_min[i])
+        A = A / np.mean(np.abs(A))
+
+        As0.append(A)
+        r_ori[i] = ri
+
+    if plot:
+        plot_CCA_coeff(stft_f, As0, plot_interval=plot_interval)
+
+    As = []
+    r = np.zeros((ntrials, 2))
+    r_shuffle = np.zeros((ntrials, surrogate_num))
+    for i in range(ntrials):
+        x_high = X[i, :]
+        x_low = Y[i, :]
+        x_high_set = phaseran(x_high.T, surrogate_num)
+        r_j = np.zeros(surrogate_num)
+
+        for j in range(surrogate_num):
+            x_high = x_high_set[:, :, j].T
+            x_low = phaseran(x_low.T, 1).T
+            _, _, s1 = stft(x_high, fs, window='hann', nperseg=win, noverlap=win-1, nfft=FFT_num, boundary=None)
+            s1 = (s1.T - np.mean(s1, axis=1)).T
+            if real_STFT:
+                s1 = np.abs(s1)
+            s1 = s1[:, int(s1_r1):int(s1_r2):int(downsample_ratio)]
+
+            if partial:
+                x_partial = partial_high_set[i, :]
+                _, _, s3 = stft(x_partial, fs, window='hann', nperseg=win, noverlap=win-downsample_ratio, nfft=FFT_num, boundary=None)
+                s3 = (s3.T - np.mean(s3, axis=1)).T
+                if real_STFT:
+                    s3 = np.abs(s3)
+                s3 = s3[:, int(s1_r1):int(s1_r2):int(downsample_ratio)]
+                A, _, ri = pCCA(s1.T, x_low[int(x22_r1):int(x22_r2)].T, s3.T)
+            elif partial_low:
+                x_partial = partial_low_set[i, :]
+                _, _, s3 = stft(x_partial, fs2, window='hann', nperseg=win2, noverlap=win2-1, nfft=FFT_num2, boundary=None)
+                s3 = (s3.T - np.mean(s3, axis=1)).T
+                if real_STFT:
+                    s3 = np.abs(s3)
+                s3 = s3[:, int(HL_index(s1_r1)):int(HL_index(s1_r2)):int(downsample_ratio)]
+                A, _, ri = pCCA(s1.T, x_low[int(x22_r1):int(x22_r2)].T, s3.T)
+            else:
+                _, _, ri = CCA().fit(s1.T, x_low[int(x22_r1):int(x22_r2)].T).transform(s1.T, x_low[int(x22_r1):int(x22_r2)].T)
+
+            ri = (ri - r_cal_min[i]) / (r_cal_max[i] - r_cal_min[i])
+            A = A / np.mean(np.abs(A))
+            As.append(A)
+
+            r_j[j] = ri
+
+        r[i, 0] = np.mean(r_j)
+        r[i, 1] = np.var(r_j)
+
+        r_shuffle[i, :] = r_j
+
+    t_stat, p_value = ttest_ind(r_ori, r[:, 0], equal_var=False)
+    if t_stat > 0:
+        print(f"ttest: Causal, p={p_value:.2e}")
+    else:
+        print(f"ttest: Non-causal, p={p_value:.2e}")
+
+    ks_stat, p_value = ks_2samp(r_ori, r[:, 0])
+    if ks_stat > 0:
+        print(f"KStest: Causal, p={p_value:.2e}")
+    else:
+        print(f"KStest: Non-causal, p={p_value:.2e}")
+
+    return stft_f, r_ori, As0, r_shuffle, As
