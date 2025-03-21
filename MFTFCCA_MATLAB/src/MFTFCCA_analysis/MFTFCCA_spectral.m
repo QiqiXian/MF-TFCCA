@@ -116,27 +116,65 @@ function [stft_f, r_ori, As0, r_shuffle, As] = MFTFCCA_spectral(X, Y, fs, downsa
         s1 = s1(:, s1_r1 : downsample_ratio : s1_r2);
 
         if partial
-            x_partial = partial_high_set(i,:);       
-            s3 = STFT(x_partial, fs, win, win-1, FFT_num, 'plot', 0, "fpass", fpass);
-            s3 = zscore(s3')';
-            if real_STFT
-                s3 = abs(s3);
+            s3_high = [];
+            if class(partial_high_set) == "cell"
+                for k = 1:length(partial_high_set)
+                    x_partial = partial_high_set{k}; x_partial = x_partial(i,:);
+                    [s3_, ~, ~] = STFT(x_partial, fs, win, win-1, FFT_num, "plot", 0, "fpass", fpass);
+                    s3_ = zscore(s3_')';
+                    if real_STFT
+                        s3_ = abs(s3_);
+                    end 
+                    s3_high = [s3_high; s3_];
+                end
+            else
+                x_partial = partial_high_set(i,:);
+                [s3_, ~, ~] = STFT(x_partial, fs, win, win-1, FFT_num, "plot", 0, "fpass", fpass);
+                s3_ = zscore(s3_')';
+                if real_STFT
+                    s3_ = abs(s3_);
+                end
+                s3_high = s3_;
             end
-            s3 = s3(:, s1_r1 : downsample_ratio : s1_r2);
-            [A,~,ri] = pCCA((s1'), x_low(x22_r1:x22_r2)', (s3'));
+            % s3 = s3(:, s1_r1 : downsample_ratio : s1_r2);
+            % [A,~,ri] = pCCA((s1'), x_low(x22_r1:x22_r2)', (s3'));
         elseif partial_low
-            x_partial = partial_low_set(i,:);
-            s3 = STFT(x_partial, fs2, win2, win2-1, FFT_num2, 'plot', 0, "fpass", fpass);
-            s3 = zscore(s3')';
-            if real_STFT
-                s3 = abs(s3);
+            s3_low = [];
+            if class(partial_low_set) == "cell"
+                for k = 1:length(partial_low_set)
+                    x_partial = partial_low_set{k}; x_partial = x_partial(i,:);
+                    [s3_, ~, ~] = STFT(x_partial, fs2, win2, win2-1, FFT_num2, "plot", 0, "fpass", fpass);
+                    s3_ = zscore(s3_')';
+                    if real_STFT
+                        s3_ = abs(s3_);
+                    end 
+                    s3_low = [s3_low; s3_];
+                end
+            else
+                x_partial = partial_low_set(i,:);
+                [s3_, ~, ~] = STFT(x_partial, fs2, win2, win2-1, FFT_num2, "plot", 0, "fpass", fpass);
+                s3_ = zscore(s3_')';
+                if real_STFT
+                    s3_ = abs(s3_);
+                end
+                s3_low = s3_;
             end
-            s3 = s3(:, HL_index(s1_r1) : downsample_ratio : HL_index(s1_r2));
-            [A,~,ri] = pCCA((s1'), x_low(x22_r1:x22_r2)', (s3'));
-        else
-            [A,~,ri] = canoncorr(s1',(x_low(x22_r1:x22_r2)'));
         end
         
+        s3 = [];
+        if partial
+            s3 = [s3; s3_high(:, s1_r1: downsample_ratio : s1_r2)];
+        end
+        if partial_low
+            s3 = [s3; s3_low(:, HL_index(s1_r1):HL_index(s1_r2))];
+        end
+
+        if partial || partial_low
+            [A,~,ri] = pCCA(s1', x_low(x22_r1:x22_r2)', s3');
+        else
+            [A,~,ri] = canoncorr(s1',x_low(x22_r1:x22_r2)');
+        end
+
         ri = (ri - r_cal_min(i)) / (r_cal_max(i) - r_cal_min(i));
         A = A/mean(abs(A));
         
@@ -174,23 +212,61 @@ function [stft_f, r_ori, As0, r_shuffle, As] = MFTFCCA_spectral(X, Y, fs, downsa
             s1 = s1(:, s1_r1 : downsample_ratio : s1_r2);
 
             if partial
-                x_partial = partial_high_set(i,:);
-                s3 = STFT(x_partial, fs, win, win-downsample_ratio, FFT_num, 'plot', 0, "fpass", fpass);
-                s3 = zscore(s3')';
-                if real_STFT
-                    s3 = abs(s3);
+                s3_high = [];
+                if class(partial_high_set) == "cell"
+                    for k = 1:length(partial_high_set)
+                        x_partial = partial_high_set{k}; x_partial = x_partial(i,:);
+                        [s3_, ~, ~] = STFT(x_partial, fs, win, win-1, FFT_num, "plot", 0, "fpass", fpass);
+                        s3_ = zscore(s3_')';
+                        if real_STFT
+                            s3_ = abs(s3_);
+                        end 
+                        s3_high = [s3_high; s3_];
+                    end
+                else
+                    x_partial = partial_high_set(i,:);
+                    [s3_, ~, ~] = STFT(x_partial, fs, win, win-1, FFT_num, "plot", 0, "fpass", fpass);
+                    s3_ = zscore(s3_')';
+                    if real_STFT
+                        s3_ = abs(s3_);
+                    end
+                    s3_high = s3_;
                 end
-                s3 = s3(:, s1_r1 : downsample_ratio : s1_r2);
-                [A,~,ri] = pCCA(s1', x_low(x22_r1:x22_r2)', (s3'));
+    
             elseif partial_low
-                x_partial = partial_low_set(i,:);
-                s3 = STFT(x_partial, fs2, win2, win2-1, FFT_num2, 'plot', 0, "fpass", fpass);
-                s3 = zscore(s3')';
-                if real_STFT
-                    s3 = abs(s3);
+                s3_low = [];
+                if class(partial_low_set) == "cell"
+                    for k = 1:length(partial_low_set)
+                        x_partial = partial_low_set{k}; x_partial = x_partial(i,:);
+                        [s3_, ~, ~] = STFT(x_partial, fs2, win2, win2-1, FFT_num2, "plot", 0, "fpass", fpass);
+                        s3_ = zscore(s3_')';
+                        if real_STFT
+                            s3_ = abs(s3_);
+                        end 
+                        s3_low = [s3_low; s3_];
+                    end
+                else
+                    x_partial = partial_low_set(i,:);
+                    [s3_, ~, ~] = STFT(x_partial, fs2, win2, win2-1, FFT_num2, "plot", 0, "fpass", fpass);
+                    s3_ = zscore(s3_')';
+                    if real_STFT
+                        s3_ = abs(s3_);
+                    end
+                    s3_low = s3_;
                 end
-                s3 = s3(:, HL_index(s1_r1) : downsample_ratio : HL_index(s1_r2));
-                [A,~,ri] = pCCA(s1', x_low(x22_r1:x22_r2)', (s3'));
+                % s3 = s3(abs(mean(abs(s3),2)) > 5e-2, :); % remove low power freqs
+            end
+            
+            s3 = [];
+            if partial
+                s3 = [s3; s3_high(:, s1_r1: downsample_ratio : s1_r2)];
+            end
+            if partial_low
+                s3 = [s3; s3_low(:, HL_index(s1_r1):HL_index(s1_r2))];
+            end
+
+            if partial || partial_low
+                [A,~,ri] = pCCA(s1', x_low(x22_r1:x22_r2)', s3');
             else
                 [A,~,ri] = canoncorr(s1',x_low(x22_r1:x22_r2)');
             end

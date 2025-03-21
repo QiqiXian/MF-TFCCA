@@ -16,7 +16,7 @@ function [lags, r_0, r_su] = MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time
         maxlag1 (1,1) double
         maxlag2 (1,1) double
         real_STFT (1,1) logical
-        calibrations (:,:) = []
+        options.calibrations (:,:) = []
         options.FFT_num (1,1) double = win
         options.surrogate_num (1,1) {mustBeInteger} = round(2000/size(X,1))
         options.fpass double = []
@@ -29,6 +29,7 @@ function [lags, r_0, r_su] = MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time
     FFT_num = options.FFT_num;
     surrogate_num = options.surrogate_num;
     fpass = options.fpass;
+    calibrations = options.calibrations;
 
     if isempty(calibrations)
         r_cal_max = ones(ntrials, 1);
@@ -52,7 +53,7 @@ function [lags, r_0, r_su] = MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time
 
     LH_index = @(x) (x-1) * downsample_ratio + 1;
     HL_index = @(x) ceil((x-1) / downsample_ratio) + 1;
-    
+   
     x22_r1 = ceil(time_start * fs / downsample_ratio) + 1;
     x22_r2 = floor(time_end * fs / downsample_ratio) + 1;
     s1_r1 = LH_index(x22_r1);
