@@ -6,6 +6,14 @@ from matplotlib.colors import Normalize
 import numpy as np
 from scipy.stats import ttest_ind, ks_2samp
 
+def pCCA(X, Y, Z):
+    
+
+def phaseran
+
+LH_index = lambda x, downsample_ratio: (x-1) * downsample_ratio + 1
+HL_index = lambda x, downsample_ratio: np.ceil((x-1) / downsample_ratio) + 1
+
 def canoncorr(X, Y):
     """
     Parameters:
@@ -186,19 +194,19 @@ def MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time_start, time_end, maxlag1
     partial_low = len(partial_low_set) > 0
     if partial_low:
         fs2 = fs / downsample_ratio
-        win2 = np.ceil(win / downsample_ratio)
-        FFT_num2 = FFT_num / downsample_ratio
+        win2 = int(np.ceil(win / downsample_ratio))
+        FFT_num2 = int(FFT_num / downsample_ratio)
 
-    LH_index = lambda x: (x-1) * downsample_ratio + 1
-    HL_index = lambda x: np.ceil((x-1) / downsample_ratio) + 1
+    LH_index = lambda x: int((x-1) * downsample_ratio + 1)
+    HL_index = lambda x: int(np.ceil((x-1) / downsample_ratio) + 1)
 
-    x22_r1 = np.ceil(time_start * fs / downsample_ratio) + 1
-    x22_r2 = np.floor(time_end * fs / downsample_ratio) + 1
+    x22_r1 = int(np.ceil(time_start * fs / downsample_ratio) + 1)
+    x22_r2 = int(np.floor(time_end * fs / downsample_ratio) + 1)
     s1_r1 = LH_index(x22_r1)
     s1_r2 = LH_index(x22_r2)
 
-    lag_max = np.ceil(maxlag1 * fs) + np.ceil((win - 1) / 2)
-    lag_max2 = np.floor(maxlag2 * fs) - np.ceil((win - 1) / 2)
+    lag_max = int(np.ceil(maxlag1 * fs) + np.ceil((win - 1) / 2))
+    lag_max2 = int(np.floor(maxlag2 * fs) - np.ceil((win - 1) / 2))
 
     if s1_r1 < lag_max:
         lag_max = s1_r1 - 1
@@ -234,7 +242,7 @@ def MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time_start, time_end, maxlag1
                     if real_STFT:
                         s3_ = np.abs(s3_)
                     s3_high.append(s3_)
-                s3_high = np.concatenate(s3_high, axis=1)
+                s3_high = np.concatenate(s3_high, axis=0)
             else:
                 x_partial = partial_high_set[i, :]
                 s3_, _, _ = STFT(x_partial, fs, win, win - 1, FFT_num, plot=0, fpass=fpass)
@@ -243,7 +251,7 @@ def MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time_start, time_end, maxlag1
                     s3_ = np.abs(s3_)
                 s3_high = s3_
 
-        elif partial_low:
+        if partial_low:
             s3_low = []
             if isinstance(partial_low_set, list):
                 for k in range(len(partial_low_set)):
@@ -254,7 +262,7 @@ def MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time_start, time_end, maxlag1
                     if real_STFT:
                         s3_ = np.abs(s3_)
                     s3_low.append(s3_)
-                s3_low = np.concatenate(s3_low, axis=1)
+                s3_low = np.concatenate(s3_low, axis=0)
             else:
                 x_partial = partial_low_set[i, :]
                 s3_, _, _ = STFT(x_partial, fs2, win2, win2-1, FFT_num2, plot=0, fpass=fpass)
@@ -266,15 +274,16 @@ def MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time_start, time_end, maxlag1
         for lag in range(-lag_max + 1, lag_max2 + 1):
             s3 = []
             if partial_high:
-                s3 = np.concatenate((s3, s3_high[:, s1_r1 + lag: downsample_ratio: s1_r2 + lag]), axis=1)
+                s3.append(s3_high[:, s1_r1 + lag - 1: s1_r2 + lag: downsample_ratio])
             if partial_low:
-                s3 = np.concatenate((s3, s3_low[:, HL_index(s1_r1 + lag): HL_index(s1_r2 + lag)]), axis=1)
+                s3.append(s3_low[:, HL_index(s1_r1 + lag) - 1: HL_index(s1_r2 + lag)])
 
             if partial_high or partial_low:
-                _, _, ri = pCCA(s1[:, s1_r1 + lag: downsample_ratio: s1_r2 + lag].T, x_low[x22_r1:x22_r2].T, s3.T)
+                s3 = np.concatenate(s3, axis=0)
+                _, _, ri = pCCA(s1[:, s1_r1 + lag - 1: s1_r2 + lag: downsample_ratio].T, x_low[x22_r1 - 1:x22_r2].T, s3.T)
             else:
-                _, _, ri = canoncorr(s1[:, s1_r1 + lag: downsample_ratio: s1_r2 + lag].T, x_low[x22_r1:x22_r2].T)
-            r[i, lag_max + lag] = ri
+                _, _, ri = canoncorr(s1[:, s1_r1 + lag - 1: s1_r2 + lag: downsample_ratio].T, x_low[x22_r1 - 1:x22_r2].T)
+            r[i, lag_max + lag - 1] = ri
 
     r = (r - r_cal_min[:ntrials]) / (r_cal_max[:ntrials] - r_cal_min[:ntrials])
     if ntrials > 1:
@@ -302,7 +311,7 @@ def MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time_start, time_end, maxlag1
                     if real_STFT:
                         s3_ = np.abs(s3_)
                     s3_high.append(s3_)
-                s3_high = np.concatenate(s3_high, axis=1)
+                s3_high = np.concatenate(s3_high, axis=0)
             else:
                 x_partial = partial_high_set[i, :]
                 s3_, _, _ = STFT(x_partial, fs, win, win - 1, FFT_num, plot=0, fpass=fpass)
@@ -311,7 +320,7 @@ def MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time_start, time_end, maxlag1
                     s3_ = np.abs(s3_)
                 s3_high = s3_
 
-        elif partial_low:
+        if partial_low:
             s3_low = []
             if isinstance(partial_low_set, list):
                 for k in range(len(partial_low_set)):
@@ -322,7 +331,7 @@ def MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time_start, time_end, maxlag1
                     if real_STFT:
                         s3_ = np.abs(s3_)
                     s3_low.append(s3_)
-                s3_low = np.concatenate(s3_low, axis=1)
+                s3_low = np.concatenate(s3_low, axis=0)
             else:
                 x_partial = partial_low_set[i, :]
                 s3_, _, _ = STFT(x_partial, fs2, win2, win2-1, FFT_num2, plot=0, fpass=fpass)
@@ -344,16 +353,17 @@ def MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time_start, time_end, maxlag1
             for lag in range(-lag_max + 1, lag_max2 + 1):
                 s3 = []
                 if partial_high:
-                    s3 = np.concatenate((s3, s3_high[:, s1_r1 + lag: downsample_ratio: s1_r2 + lag]), axis=1)
+                    s3.append(s3_high[:, s1_r1 + lag - 1: s1_r2 + lag: downsample_ratio])
                 if partial_low:
-                    s3 = np.concatenate((s3, s3_low[:, HL_index(s1_r1 + lag): HL_index(s1_r2 + lag)]), axis=1)
+                    s3.append(s3_low[:, HL_index(s1_r1 + lag) - 1: HL_index(s1_r2 + lag)])
 
                 if partial_high or partial_low:
-                    _, _, ri = pCCA(s1[:, s1_r1 + lag: downsample_ratio: s1_r2 + lag].T, x_low[x22_r1:x22_r2].T, s3.T)
+                    s3 = np.concatenate(s3, axis=0)
+                    _, _, ri = pCCA(s1[:, s1_r1 + lag - 1: s1_r2 + lag: downsample_ratio].T, x_low[x22_r1 - 1:x22_r2].T, s3.T)
                 else:
-                    _, _, ri = canoncorr(s1[:, s1_r1 + lag: downsample_ratio: s1_r2 + lag].T, x_low[x22_r1:x22_r2].T)
+                    _, _, ri = canoncorr(s1[:, s1_r1 + lag - 1: s1_r2 + lag: downsample_ratio].T, x_low[x22_r1 - 1:x22_r2].T)
 
-                r[i, lag_max + lag, s] = ri
+                r[i, lag_max + lag - 1, s] = ri
 
     r = (r - r_cal_min) / (r_cal_max - r_cal_min)
     r = np.vstack((np.mean(r, axis=(0, 2)), np.sqrt(np.var(r, axis=(0, 2)))))  # / np.sqrt(ntrials)
@@ -426,10 +436,11 @@ def MFTFCCA_spectral(X, Y, fs, downsample_ratio,
     partial_low = len(partial_low_set) > 0
     if partial_low:
         fs2 = fs / downsample_ratio
-        win2 = np.ceil(win / downsample_ratio)
-        FFT_num2 = FFT_num / downsample_ratio
+        win2 = int(np.ceil(win / downsample_ratio))
+        FFT_num2 = int(FFT_num / downsample_ratio)
 
-    LH_index = lambda x: (x-1) * downsample_ratio + 1
+    LH_index = lambda x: int((x-1) * downsample_ratio + 1)
+    HL_index = lambda x: int(np.ceil((x-1) / downsample_ratio) + 1)
 
     x22_r1 = np.ceil(time_start * fs / downsample_ratio) + 1
     x22_r2 = np.floor(time_end * fs / downsample_ratio) + 1
@@ -451,26 +462,29 @@ def MFTFCCA_spectral(X, Y, fs, downsample_ratio,
         s1 = (s1.T - np.mean(s1, axis=1)).T
         if real_STFT:
             s1 = np.abs(s1)
-        s1 = s1[:, int(s1_r1):int(s1_r2):int(downsample_ratio)]
+        s1 = s1[:, int(s1_r1) - 1:int(s1_r2):int(downsample_ratio)]
 
+        s3 = []
         if partial:
             x_partial = partial_high_set[i, :]
-            _, _, s3 = stft(x_partial, fs, window='hann', nperseg=win, noverlap=win-1, nfft=FFT_num, boundary=None)
-            s3 = (s3.T - np.mean(s3, axis=1)).T
+            _, _, s3_high = stft(x_partial, fs, window='hann', nperseg=win, noverlap=win-1, nfft=FFT_num, boundary=None)
+            s3_high = (s3_high.T - np.mean(s3_high, axis=1)).T
             if real_STFT:
-                s3 = np.abs(s3)
-            s3 = s3[:, int(s1_r1):int(s1_r2):int(downsample_ratio)]
-            A, _, ri = pCCA(s1.T, x_low[int(x22_r1):int(x22_r2)].T, s3.T)
-        elif partial_low:
+                s3_high = np.abs(s3_high)
+            s3.append(s3_high[:, int(s1_r1) - 1:int(s1_r2):int(downsample_ratio)])
+        if partial_low:
             x_partial = partial_low_set[i, :]
-            _, _, s3 = stft(x_partial, fs2, window='hann', nperseg=win2, noverlap=win2-1, nfft=FFT_num2, boundary=None)
-            s3 = (s3.T - np.mean(s3, axis=1)).T
+            _, _, s3_low = stft(x_partial, fs2, window='hann', nperseg=win2, noverlap=win2-1, nfft=FFT_num2, boundary=None)
+            s3_low = (s3_low.T - np.mean(s3_low, axis=1)).T
             if real_STFT:
-                s3 = np.abs(s3)
-            s3 = s3[:, int(HL_index(s1_r1)):int(HL_index(s1_r2)):int(downsample_ratio)]
-            A, _, ri = pCCA(s1.T, x_low[int(x22_r1):int(x22_r2)].T, s3.T)
+                s3_low = np.abs(s3_low)
+            s3.append(s3_low[:, int(HL_index(s1_r1)) - 1:int(HL_index(s1_r2))])
+
+        if partial or partial_low:
+            s3 = np.concatenate(s3, axis=0)
+            A, _, ri = pCCA(s1.T, x_low[int(x22_r1) - 1:int(x22_r2)].T, s3.T)
         else:
-            _, _, ri = CCA().fit(s1.T, x_low[int(x22_r1):int(x22_r2)].T).transform(s1.T, x_low[int(x22_r1):int(x22_r2)].T)
+            _, _, ri = CCA().fit(s1.T, x_low[int(x22_r1) - 1:int(x22_r2)].T).transform(s1.T, x_low[int(x22_r1) - 1:int(x22_r2)].T)
 
         ri = (ri - r_cal_min[i]) / (r_cal_max[i] - r_cal_min[i])
         A = A / np.mean(np.abs(A))
@@ -497,26 +511,29 @@ def MFTFCCA_spectral(X, Y, fs, downsample_ratio,
             s1 = (s1.T - np.mean(s1, axis=1)).T
             if real_STFT:
                 s1 = np.abs(s1)
-            s1 = s1[:, int(s1_r1):int(s1_r2):int(downsample_ratio)]
+            s1 = s1[:, int(s1_r1) - 1:int(s1_r2):int(downsample_ratio)]
 
+            s3 = []
             if partial:
                 x_partial = partial_high_set[i, :]
-                _, _, s3 = stft(x_partial, fs, window='hann', nperseg=win, noverlap=win-downsample_ratio, nfft=FFT_num, boundary=None)
-                s3 = (s3.T - np.mean(s3, axis=1)).T
+                _, _, s3_high = stft(x_partial, fs, window='hann', nperseg=win, noverlap=win-downsample_ratio, nfft=FFT_num, boundary=None)
+                s3_high = (s3_high.T - np.mean(s3_high, axis=1)).T
                 if real_STFT:
-                    s3 = np.abs(s3)
-                s3 = s3[:, int(s1_r1):int(s1_r2):int(downsample_ratio)]
-                A, _, ri = pCCA(s1.T, x_low[int(x22_r1):int(x22_r2)].T, s3.T)
-            elif partial_low:
+                    s3_high = np.abs(s3_high)
+                s3.append(s3_high[:, int(s1_r1) - 1:int(s1_r2):int(downsample_ratio)])
+            if partial_low:
                 x_partial = partial_low_set[i, :]
-                _, _, s3 = stft(x_partial, fs2, window='hann', nperseg=win2, noverlap=win2-1, nfft=FFT_num2, boundary=None)
-                s3 = (s3.T - np.mean(s3, axis=1)).T
+                _, _, s3_low = stft(x_partial, fs2, window='hann', nperseg=win2, noverlap=win2-1, nfft=FFT_num2, boundary=None)
+                s3_low = (s3_low.T - np.mean(s3_low, axis=1)).T
                 if real_STFT:
-                    s3 = np.abs(s3)
-                s3 = s3[:, int(HL_index(s1_r1)):int(HL_index(s1_r2)):int(downsample_ratio)]
-                A, _, ri = pCCA(s1.T, x_low[int(x22_r1):int(x22_r2)].T, s3.T)
+                    s3_low = np.abs(s3_low)
+                s3.append(s3_low[:, int(HL_index(s1_r1)) - 1:int(HL_index(s1_r2))])
+
+            if partial or partial_low:
+                s3 = np.concatenate(s3, axis=0)
+                A, _, ri = pCCA(s1.T, x_low[int(x22_r1) - 1:int(x22_r2)].T, s3.T)
             else:
-                _, _, ri = CCA().fit(s1.T, x_low[int(x22_r1):int(x22_r2)].T).transform(s1.T, x_low[int(x22_r1):int(x22_r2)].T)
+                _, _, ri = CCA().fit(s1.T, x_low[int(x22_r1) - 1:int(x22_r2)].T).transform(s1.T, x_low[int(x22_r1) - 1:int(x22_r2)].T)
 
             ri = (ri - r_cal_min[i]) / (r_cal_max[i] - r_cal_min[i])
             A = A / np.mean(np.abs(A))

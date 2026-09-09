@@ -138,7 +138,9 @@ function [stft_f, r_ori, As0, r_shuffle, As] = MFTFCCA_spectral(X, Y, fs, downsa
             end
             % s3 = s3(:, s1_r1 : downsample_ratio : s1_r2);
             % [A,~,ri] = pCCA((s1'), x_low(x22_r1:x22_r2)', (s3'));
-        elseif partial_low
+        end
+
+        if partial_low
             s3_low = [];
             if class(partial_low_set) == "cell"
                 for k = 1:length(partial_low_set)
@@ -232,8 +234,9 @@ function [stft_f, r_ori, As0, r_shuffle, As] = MFTFCCA_spectral(X, Y, fs, downsa
                     end
                     s3_high = s3_;
                 end
-    
-            elseif partial_low
+            end
+
+            if partial_low
                 s3_low = [];
                 if class(partial_low_set) == "cell"
                     for k = 1:length(partial_low_set)
@@ -288,16 +291,16 @@ function [stft_f, r_ori, As0, r_shuffle, As] = MFTFCCA_spectral(X, Y, fs, downsa
 
     [h, p] = ttest((r_ori'-r(:,1))./sqrt(r(:,2)));
     if h == 1
-        fprintf("ttest: Causal, p=%.2e", p)
+        fprintf("\nt test: Causal, p=%.2e", p)
     else
-        fprintf("ttest: Non-causal, p=%.2e", p)
+        fprintf("\nt test: Non-causal, p=%.2e", p)
     end
 
     [h, p] = kstest2(r_ori, r(:,1));
     if h == 1
-        fprintf("KStest: Causal, p=%.2e", p)
+        fprintf("\nKS test: Causal, p=%.2e", p)
     else
-        fprintf("KStest: Non-causal, p=%.2e", p)
+        fprintf("\nKS test: Non-causal, p=%.2e", p)
     end
 
 end

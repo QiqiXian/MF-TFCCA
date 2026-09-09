@@ -60,8 +60,8 @@ function [X, Y] = generate_nonlinear_system(n, seed, mode)
         X = X'; Y = Y';
     end
 
-%     X = X(:, 101:end);
-%     Y = Y(:, 101:end);
+    % X = X(:, 101:end);
+    % Y = Y(:, 101:end);
     X = X(101:end, :);
     Y = Y(101:end, :);
 

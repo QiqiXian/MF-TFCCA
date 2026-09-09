@@ -1,7 +1,7 @@
 function pval_mat1 = MFVAR(Data, m, K_H, K_L, p, gclabels)
 % Data: Time * K * #trials
 % Data, m(ratio of sampling frequencies), K_H, K_L, p(VAR lag length
-% included), labels, gclabels
+% included), gclabels
 
 %% Step 1: Initial setting
 % general setting

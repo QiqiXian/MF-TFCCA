@@ -3,7 +3,7 @@
 % 
 %%
 
-function [lags, r_0, r_su] = MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time_start, time_end, maxlag1, maxlag2, real_STFT, calibrations, options)
+function [lags, r_0, r_su] = MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time_start, time_end, maxlag1, maxlag2, real_STFT, options)
 
     arguments
         X (:,:) 
@@ -20,9 +20,10 @@ function [lags, r_0, r_su] = MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time
         options.FFT_num (1,1) double = win
         options.surrogate_num (1,1) {mustBeInteger} = round(2000/size(X,1))
         options.fpass double = []
-        options.partial_high_set (:,:) = []
-        options.partial_low_set (:,:) = []
+        options.partial_high_set = []
+        options.partial_low_set = []
         options.plot (1,1) logical = true
+        options.fig = []
     end
 
     ntrials = size(X, 1); x_len = size(X, 2);
@@ -31,6 +32,13 @@ function [lags, r_0, r_su] = MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time
     fpass = options.fpass;
     calibrations = options.calibrations;
 
+    if isscalar(calibrations) && calibrations == 1
+        disp("Compute calibrations...")
+        calibrations = MFTFCCA_compute_calibrations(X, fs, downsample_ratio, ...
+            win, time_start, time_end, maxlag1, maxlag2, real_STFT, ...
+            "FFT_num", FFT_num, "fpass", fpass, "plot", 0);
+        disp("Calibrations computed")
+    end
     if isempty(calibrations)
         r_cal_max = ones(ntrials, 1);
         r_cal_min = zeros(ntrials, 1);
@@ -40,10 +48,13 @@ function [lags, r_0, r_su] = MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time
     end
 
     partial = ~isempty(options.partial_high_set); 
-    partial_high_set = options.partial_high_set;
+    if partial
+        partial_high_set = convert_to_3d_array(options.partial_high_set);
+    end
+
     partial_low = ~isempty(options.partial_low_set);
     if partial_low
-        partial_low_set = options.partial_low_set;
+        partial_low_set = convert_to_3d_array(options.partial_low_set);
         fs2 = fs / downsample_ratio;
         win2 = ceil(win / downsample_ratio);
         FFT_num2 = FFT_num / downsample_ratio;
@@ -58,6 +69,9 @@ function [lags, r_0, r_su] = MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time
     x22_r2 = floor(time_end * fs / downsample_ratio) + 1;
     s1_r1 = LH_index(x22_r1);
     s1_r2 = LH_index(x22_r2);
+
+    assert (x22_r2 <= x_len / downsample_ratio, "time_end is too large")
+    assert (x22_r1 <= x22_r2, "time_start is larger than time_end")
 
     lag_max = ceil(maxlag1 * fs) + ceil((win - 1) / 2 );
     lag_max2 = floor(maxlag2 * fs) - ceil((win - 1) / 2 );
@@ -96,45 +110,28 @@ function [lags, r_0, r_su] = MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time
         
         if partial
             s3_high = [];
-            if class(partial_high_set) == "cell"
-                for k = 1:length(partial_high_set)
-                    x_partial = partial_high_set{k}; x_partial = x_partial(i,:);
-                    [s3_, ~, ~] = STFT(x_partial, fs, win, win-1, FFT_num, "plot", 0, "fpass", fpass);
-                    s3_ = zscore(s3_')';
-                    if real_STFT
-                        s3_ = abs(s3_);
-                    end 
-                    s3_high = [s3_high; s3_];
-                end
-            else
-                x_partial = partial_high_set(i,:);
+            for k = 1:size(partial_high_set, 1)
+                x_partial = squeeze(partial_high_set(k,:,:)); 
+                x_partial = x_partial(i,:);
                 [s3_, ~, ~] = STFT(x_partial, fs, win, win-1, FFT_num, "plot", 0, "fpass", fpass);
                 s3_ = zscore(s3_')';
                 if real_STFT
                     s3_ = abs(s3_);
-                end
-                s3_high = s3_;
+                end 
+                s3_high = [s3_high; s3_];
             end
-        elseif partial_low
+        end
+        if partial_low
             s3_low = [];
-            if class(partial_low_set) == "cell"
-                for k = 1:length(partial_low_set)
-                    x_partial = partial_low_set{k}; x_partial = x_partial(i,:);
-                    [s3_, ~, ~] = STFT(x_partial, fs2, win2, win2-1, FFT_num2, "plot", 0, "fpass", fpass);
-                    s3_ = zscore(s3_')';
-                    if real_STFT
-                        s3_ = abs(s3_);
-                    end 
-                    s3_low = [s3_low; s3_];
-                end
-            else
-                x_partial = partial_low_set(i,:);
+            for k = 1:size(partial_low_set, 1)
+                x_partial = squeeze(partial_low_set(k,:,:)); 
+                x_partial = x_partial(i,:);
                 [s3_, ~, ~] = STFT(x_partial, fs2, win2, win2-1, FFT_num2, "plot", 0, "fpass", fpass);
                 s3_ = zscore(s3_')';
                 if real_STFT
                     s3_ = abs(s3_);
-                end
-                s3_low = s3_;
+                end 
+                s3_low = [s3_low; s3_];
             end
             % s3 = s3(abs(mean(abs(s3),2)) > 5e-2, :); % remove low power freqs
         end
@@ -178,53 +175,36 @@ function [lags, r_0, r_su] = MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time
         
         if partial
             s3_high = [];
-            if class(partial_high_set) == "cell"
-                for k = 1:length(partial_high_set)
-                    x_partial = partial_high_set{k}; x_partial = x_partial(i,:);
-                    [s3_, ~, ~] = STFT(x_partial, fs, win, win-1, FFT_num, "plot", 0, "fpass", fpass);
-                    s3_ = zscore(s3_')';
-                    if real_STFT
-                        s3_ = abs(s3_);
-                    end 
-                    s3_high = [s3_high; s3_];
-                end
-            else
-                x_partial = partial_high_set(i,:);
+            for k = 1:size(partial_high_set, 1)
+                x_partial = squeeze(partial_high_set(k,:,:)); 
+                x_partial = x_partial(i,:);
                 [s3_, ~, ~] = STFT(x_partial, fs, win, win-1, FFT_num, "plot", 0, "fpass", fpass);
                 s3_ = zscore(s3_')';
                 if real_STFT
                     s3_ = abs(s3_);
-                end
-                s3_high = s3_;
+                end 
+                s3_high = [s3_high; s3_];
             end
+        end
 
-        elseif partial_low
+        if partial_low
             s3_low = [];
-            if class(partial_low_set) == "cell"
-                for k = 1:length(partial_low_set)
-                    x_partial = partial_low_set{k}; x_partial = x_partial(i,:);
-                    [s3_, ~, ~] = STFT(x_partial, fs2, win2, win2-1, FFT_num2, "plot", 0, "fpass", fpass);
-                    s3_ = zscore(s3_')';
-                    if real_STFT
-                        s3_ = abs(s3_);
-                    end 
-                    s3_low = [s3_low; s3_];
-                end
-            else
-                x_partial = partial_low_set(i,:);
+            for k = 1:size(partial_low_set, 1)
+                x_partial = squeeze(partial_low_set(k,:,:)); 
+                x_partial = x_partial(i,:);
                 [s3_, ~, ~] = STFT(x_partial, fs2, win2, win2-1, FFT_num2, "plot", 0, "fpass", fpass);
                 s3_ = zscore(s3_')';
                 if real_STFT
                     s3_ = abs(s3_);
                 end
-                s3_low = s3_;
+                s3_low = [s3_low; s3_];
             end
             % s3 = s3(abs(mean(abs(s3),2)) > 5e-2, :); % remove low power freqs
         end
         
         for s = 1:surrogate_num
             x_high = x_high_su(:,:,s)';
-            x_low = phaseran(x_low', 1)';
+            % x_low = phaseran(x_low', 1)';
 
             [s1, ~, ~] = STFT(x_high, fs, win, win-1, FFT_num, 'plot',0, "fpass", fpass);
         
@@ -257,48 +237,50 @@ function [lags, r_0, r_su] = MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time
     % r_su_all = r;
     r = [mean(r, [1,3]);sqrt(var(r, [], [1,3])) ]; %  / sqrt(ntrials)
     r_su = r;
-    
-
     % -------- Plot --------
 
     if options.plot
-
-        figure('Position', [100, 100, 800, 400]); hold on;
+        % determine target axes: if options.fig is an axes handle, use it; else create figure
+        ax = [];
+        if isfield(options, "fig") && isa(options.fig, 'matlab.graphics.axis.Axes') && isvalid(options.fig)
+            ax = options.fig;
+            hold(ax, "on");
+        else
+            fig = figure('Position', [100, 100, 800, 400]);
+            ax = axes(fig); hold(ax, "on");
+        end
 
         norm_factor = sqrt(ntrials);
-%         norm_factor = 1;
+        % norm_factor = 1;
 
         r = r_su;
-        fill([lags lags(end:-1:1)], [r(1,:)+r(2,:)/norm_factor, r(1,end:-1:1)-r(2,end:-1:1)/norm_factor], ...
-        'b', 'FaceColor', [0.8 0.8 1], ...
-            'EdgeColor','none')
+        fill(ax, [lags lags(end:-1:1)], [r(1,:)+r(2,:)/norm_factor, r(1,end:-1:1)-r(2,end:-1:1)/norm_factor], ...
+            'b', 'FaceColor', [0.8 0.8 1], 'EdgeColor','none');
 
         if ntrials > 1
             r = r_0;
-            fill([lags lags(end:-1:1)], [r(1,:)+r(2,:)/norm_factor , r(1,end:-1:1)-r(2,end:-1:1)/norm_factor], ...
-            'r', 'FaceColor', [1 0.8 0.8], ...
-                'EdgeColor','none')
+            fill(ax, [lags lags(end:-1:1)], [r(1,:)+r(2,:)/norm_factor , r(1,end:-1:1)-r(2,end:-1:1)/norm_factor], ...
+                'r', 'FaceColor', [1 0.8 0.8], 'EdgeColor','none');
         end
-        
-        colororder([0    0.4470    0.7410; ...
+
+        colororder(ax, [0    0.4470    0.7410; ...
             0.8500    0.3250    0.0980;])
         for r_ = {r_su, r_0}
             r = cell2mat(r_);
-            plot(lags, r(1,:), "LineWidth", 6);
+            plot(ax, lags, r(1,:), "LineWidth", 6);
         end
 
-        yLimits = ylim();
+        yLimits = ylim(ax);
 
-        plot([-win/fs/2, -win/fs/2], yLimits, "k--", "LineWidth", 3);
-        plot([win/fs/2, win/fs/2], yLimits, "k--", "LineWidth", 3);
+        plot(ax, [-win/fs/2, -win/fs/2], yLimits, "k--", "LineWidth", 3);
+        plot(ax, [win/fs/2, win/fs/2], yLimits, "k--", "LineWidth", 3);
 
-        hold off
-        legend(["", "", "Surrogate", "Original"], "Location", "bestoutside");
-        axis padded
-        xlabel("Time lag (s)");
-        ylabel("Can. Corr")
-        set(gca, "fontSize", 25)
-        set(gca, "LineWidth", 4)
+        hold(ax, "off")
+        % legend(ax, ["", "", "Surrogate", "Original"], "Location", "bestoutside");
+        axis(ax, "padded")
+        xlabel(ax, "Time lag (s)");
+        ylabel(ax, "Can. Corr")
+        set(ax, "fontSize", 25, "LineWidth", 4)
 
     end
 
