@@ -22,6 +22,8 @@ function [lags, r_0, r_su] = MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time
         options.fpass double = []
         options.partial_high_set = []
         options.partial_low_set = []
+        options.partial_lag_set = []
+        options.n_lags (1,1) double = NaN
         options.plot (1,1) logical = true
         options.fig = []
     end
@@ -39,7 +41,7 @@ function [lags, r_0, r_su] = MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time
             "FFT_num", FFT_num, "fpass", fpass, "plot", 0);
         disp("Calibrations computed")
     end
-    if isempty(calibrations)
+    if isempty(calibrations) || (isscalar(calibrations) && calibrations == 0)
         r_cal_max = ones(ntrials, 1);
         r_cal_min = zeros(ntrials, 1);
     else
@@ -52,12 +54,34 @@ function [lags, r_0, r_su] = MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time
         partial_high_set = convert_to_3d_array(options.partial_high_set);
     end
 
+    fs2 = fs / downsample_ratio;
+    win2 = ceil(win / downsample_ratio);
+    FFT_num2 = FFT_num / downsample_ratio;
+
     partial_low = ~isempty(options.partial_low_set);
     if partial_low
         partial_low_set = convert_to_3d_array(options.partial_low_set);
-        fs2 = fs / downsample_ratio;
-        win2 = ceil(win / downsample_ratio);
-        FFT_num2 = FFT_num / downsample_ratio;
+    end
+
+    % Raw low-rate signals whose recent past is regressed out at every
+    % analysis point: at point t of the Y window, the taps
+    % z(t-1) ... z(t-n_lags) are partialled out. The taps are indexed by Y's
+    % own time base, so the block does not move with the lag and z(t) itself
+    % is never included. Equivalent to removing any FIR-filtered
+    % contribution of z over that span, without going through its spectrum.
+    partial_lag = ~isempty(options.partial_lag_set);
+    n_lags = options.n_lags;
+    if isnan(n_lags)
+        n_lags = win2;
+    end
+    if n_lags == 0
+        partial_lag = 0;
+    end
+    if partial_lag
+        partial_lag_set = convert_to_3d_array(options.partial_lag_set);
+        assert(n_lags >= 1, "n_lags must be at least 1")
+        assert(size(partial_lag_set, 3) >= floor(x_len / downsample_ratio), ...
+            "partial_lag_set must be on the low-rate grid (N_trials x time/downsample_ratio)")
     end
 
     % assert(partial_low == 0 || partial == 0, "Only one of partial_high_set and partial_low_set can be set")
@@ -88,6 +112,14 @@ function [lags, r_0, r_su] = MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time
     end
     % assert(size(s1, 2) - s1_r2 >= lag_max2)
     
+    if partial_lag
+        assert(x22_r1 - n_lags >= 1, ...
+            "Not enough samples before time_start for %d lag taps: increase " + ...
+            "time_start or reduce n_lags.", n_lags)
+        assert(x22_r2 <= size(partial_lag_set, 3), ...
+            "partial_lag_set is shorter than the Y analysis window.")
+    end
+
     lags = (-lag_max + 1 : lag_max2) / fs  + (win - 1) / 2 / fs;
     
 
@@ -137,6 +169,11 @@ function [lags, r_0, r_su] = MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time
         end
 
 
+        if partial_lag
+            z_lag = reshape(partial_lag_set(:, i, :), size(partial_lag_set, 1), []);
+            s3_lag = build_lag_block(z_lag, x22_r1, x22_r2, n_lags);
+        end
+
         for lag = -lag_max + 1 : lag_max2
             s3 = [];
             if partial
@@ -145,8 +182,11 @@ function [lags, r_0, r_su] = MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time
             if partial_low
                 s3 = [s3; s3_low(:, HL_index(s1_r1+lag):HL_index(s1_r2+lag))];
             end
+            if partial_lag
+                s3 = [s3; s3_lag];
+            end
 
-            if partial || partial_low
+            if partial || partial_low || partial_lag
                 [~,~,ri] = pCCA(s1(:, s1_r1+lag: downsample_ratio : s1_r2+lag)', x_low(x22_r1:x22_r2)', s3');
             else
                 [~,~,ri] = canoncorr((s1(:, s1_r1+lag: downsample_ratio : s1_r2+lag)'),x_low(x22_r1:x22_r2)');
@@ -201,7 +241,12 @@ function [lags, r_0, r_su] = MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time
             end
             % s3 = s3(abs(mean(abs(s3),2)) > 5e-2, :); % remove low power freqs
         end
-        
+
+        if partial_lag
+            z_lag = reshape(partial_lag_set(:, i, :), size(partial_lag_set, 1), []);
+            s3_lag = build_lag_block(z_lag, x22_r1, x22_r2, n_lags);
+        end
+
         for s = 1:surrogate_num
             x_high = x_high_su(:,:,s)';
             % x_low = phaseran(x_low', 1)';
@@ -221,8 +266,11 @@ function [lags, r_0, r_su] = MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time
                 if partial_low
                     s3 = [s3; s3_low(:, HL_index(s1_r1+lag):HL_index(s1_r2+lag))];
                 end
+                if partial_lag
+                    s3 = [s3; s3_lag];
+                end
 
-                if partial || partial_low
+                if partial || partial_low || partial_lag
                     [~,~,ri] = pCCA(s1(:, s1_r1+lag: downsample_ratio : s1_r2+lag)', x_low(x22_r1:x22_r2)', s3');
                 else
                     [~,~,ri] = canoncorr((s1(:, s1_r1+lag: downsample_ratio : s1_r2+lag)'),x_low(x22_r1:x22_r2)');
@@ -284,4 +332,27 @@ function [lags, r_0, r_su] = MFTFCCA_lagCC(X, Y, fs, downsample_ratio, win, time
 
     end
 
+end
+
+
+function blk = build_lag_block(Zi, t1, t2, n_lags)
+% Past-sample design block for the raw partial-out signals.
+%
+%   Zi     - K x time matrix, one row per partial-out variable (one trial)
+%   t1, t2 - first and last point of the Y analysis window (low-rate indices)
+%   n_lags - number of taps
+%
+% Row (k-1)*n_lags + m holds variable k delayed by m samples, i.e. the
+% column for analysis point t carries Zi(k, t-m). Taps run from t-1 back to
+% t-n_lags; the current sample z(t) is not included.
+
+    K = size(Zi, 1);
+    blk = zeros(K * n_lags, t2 - t1 + 1);
+    row = 0;
+    for k = 1:K
+        for m = 1:n_lags
+            row = row + 1;
+            blk(row, :) = Zi(k, t1-m : t2-m);
+        end
+    end
 end

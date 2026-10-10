@@ -15,6 +15,7 @@ dt = 1/fs;
 % Set the corresponding r as 0 to ignore the frequency.
 
 % generate examples
+    % Fig S2
 f1 = 80; f2 = 4; f3 = 15; f4 = 2; f5 = 30; 
 r1 = 0.8; r2=0.8; r3 = 0.5; r4 = 0.7; r5 = 0.9;
 
@@ -55,14 +56,16 @@ AT(:,:,4) = [-r1^2*r2^2 -0.0 0;
 % AT(i,j,lag) controls the causality from Xj to Xi at lag
 
 % System1: X to Y
-AT(2,1,1) = -0.4;
-AT(2,1,2) = 0.7;
-AT(2,1,3) = -0.1;
+    % Fig S2 a-d
+% AT(2,1,1) = -0.4;
+% AT(2,1,2) = 0.7;
+% AT(2,1,3) = -0.1;
 
-% % System2: Y to X
-% AT(1,2,1) = 0.05;
-% AT(1,2,2) = -0.05;
-% AT(1,2,3) = 0.1;
+% System2: Y to X
+    % Fig S2 e-h
+AT(1,2,1) = 0.05;
+AT(1,2,2) = -0.05;
+AT(1,2,3) = 0.1;
 
 % System3: Bidirectional
 % b = [-0.35, 0.7, -0.3] / 2;
@@ -160,10 +163,19 @@ win = 40;
 real_STFT = 0;
 
 tic
-[lags, r_0, r_su] = MFTFCCA_lagCC(x1(1:end,:), x2(1:end,:), fs, downsample_ratio, ...
+% [lags, r_0, r_su] = MFTFCCA_lagCC(x1, x1(:, 1:downsample_ratio:end), fs, downsample_ratio, ...
+%     win, 2, 18, 0.5, 0.5, real_STFT, ...
+%     "surrogate_num", 1, "plot", 1, ...
+%     "partial_lag_set", x1(:, 1:downsample_ratio:end), "n_lags", 10);
+
+[lags, r_0, r_su] = MFTFCCA_lagCC(x1, x2, fs, downsample_ratio, ...
     win, 2, 18, 0.5, 0.5, real_STFT, ...
-    "surrogate_num", 1, "plot", 1, "partial_low_set", {circshift(x2, 2, 2), circshift(x2, 2, 2)});
+    "surrogate_num", 1, "plot", 1, ...
+    "partial_lag_set", x2, "n_lags", 0,"calibrations", 1);
+
 toc
+% fig = gca;
+% savefigs(fig, figfolder, "ds5_win40")
 
 %% Use MF-TFCCA to compute spectral on one certain lag
 

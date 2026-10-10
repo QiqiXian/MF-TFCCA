@@ -1,3 +1,7 @@
+% Fig S2
+
+%%
+
 set(0,'defaultAxesFontName', 'Calibri')
 set(0,'defaultTextFontName', 'Calibri')
 
@@ -128,14 +132,6 @@ figure('Units','normalized','Position',[0.05 0.05 0.9 0.85],'Color','w');
 % % Pre-create 9 subplot axes and store their handles
 % f = gobjects(3,3);
 ax_handles = gobjects(3,3);
-% for i = 1:3
-%     for j = 1:3
-%         idx = (i-1)*3 + j;
-%         f(i,j) = subplot(3,3,idx);
-%         title(f(i,j), sprintf('Ratio %d, Win %d', ratios(j), wins(i)));
-%         axis(f(i,j), 'on');
-%     end
-% end
 
 plotIdx = 1;
 for downsample_ratio = ratios
@@ -153,10 +149,9 @@ for downsample_ratio = ratios
         ax = subplot(3, 3, plotIdx); ax_handles(plotIdx) = ax;
 
         tic
-        cals = MFTFCCA_compute_calibrations(x1, fs, downsample_ratio, win, ...
-            2, 18, 0.5, 0.5, false, "plot", 0);
-        [lags, r_0, r_su] = MFTFCCA_lagCC(x1(1:end,:), x2(1:end,:), fs, downsample_ratio, ...
-            win, 2, 18, 0.5, 0.5, false, "surrogate_num", 1, "plot", 1, "fig", ax, "calibrations", cals);
+        [lags, r_0, r_su] = MFTFCCA_lagCC(x1, x2, fs, downsample_ratio, ...
+            win, 2, 18, 0.5, 0.5, false, "surrogate_num", 1, "plot", 1, "fig", ax, ...
+            "calibrations", 1, "partial_lag_set", x2, "n_lags", 50 / downsample_ratio);
         toc
 
         xlabel(ax, ""); ylabel(ax, "");
@@ -165,6 +160,8 @@ for downsample_ratio = ratios
     end
 end
 linkaxes(ax_handles, 'xy');
+
+savefigs(ax, "D:\Codes\Decoding\Simulation demos\Figures\0-Paper_figures\2026Sep Revision Plots\Fig S2\", "sweap_w_cal");
 %%
 function h = plotLowFreqData(ax, y, L, x)
     % plotBrokenLines Plots data points as horizontal segments of length L
